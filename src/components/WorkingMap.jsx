@@ -1,17 +1,16 @@
 import React, { useState, useEffect } from 'react';
 import { MapContainer, TileLayer, CircleMarker, Popup } from 'react-leaflet';
-import { ArrowLeft, Filter, Clock, Car, Plane, Hammer, Music, Volume2, RefreshCw, Zap } from 'lucide-react';
-import { realtimeManager } from '../utils/realtimeManager';
-import NotificationCenter from './NotificationCenter';
+import { ArrowLeft, Filter, Car, Plane, Hammer, Music, Volume2, Zap } from 'lucide-react';
 import { globalNoiseData } from '../data/globalNoiseData';
+import { realtimeManager } from '../utils/realtimeManager';
+import SimpleNotifications from './SimpleNotifications';
 import 'leaflet/dist/leaflet.css';
 
-const NoiseMap = ({ onBack }) => {
+const WorkingMap = ({ onBack }) => {
   const [filteredData, setFilteredData] = useState(globalNoiseData);
   const [liveData, setLiveData] = useState(new Map());
   const [filters, setFilters] = useState({
     noiseType: 'all',
-    timeRange: '24h',
     minNoiseLevel: 0,
     maxNoiseLevel: 140
   });
@@ -30,12 +29,6 @@ const NoiseMap = ({ onBack }) => {
 
     return unsubscribe;
   }, []);
-
-  // Handle notification location clicks
-  const handleNotificationLocationClick = (coordinates, notification) => {
-    // For now, we'll just log this - can implement map navigation later
-    console.log('Navigate to:', coordinates, notification);
-  };
 
   // Get live or static data for a location
   const getDisplayData = (staticPoint) => {
@@ -59,14 +52,7 @@ const NoiseMap = ({ onBack }) => {
     { id: 'social', label: 'Social/Music', icon: Music }
   ];
 
-  const timeRanges = [
-    { id: '1h', label: 'Last Hour' },
-    { id: '24h', label: 'Last 24 Hours' },
-    { id: '7d', label: 'Last 7 Days' },
-    { id: '30d', label: 'Last 30 Days' }
-  ];
-
-  // Apply filters to data
+  // Apply filters
   useEffect(() => {
     let filtered = globalNoiseData;
 
@@ -80,9 +66,6 @@ const NoiseMap = ({ onBack }) => {
       item.noiseLevel >= filters.minNoiseLevel && 
       item.noiseLevel <= filters.maxNoiseLevel
     );
-
-    // Filter by time range (simplified - in real app would use actual date comparison)
-    // For demo purposes, we'll show all data regardless of time range
 
     setFilteredData(filtered);
   }, [filters]);
@@ -117,7 +100,7 @@ const NoiseMap = ({ onBack }) => {
           <ArrowLeft className="back-icon" />
           Back
         </button>
-        <h1 className="map-title">Global Noise Pollution Map ({globalNoiseData.length} data points)</h1>
+        <h1 className="map-title">Global Noise Map ({filteredData.length} points)</h1>
         <button 
           className="filter-button"
           onClick={() => setShowFilters(!showFilters)}
@@ -134,16 +117,16 @@ const NoiseMap = ({ onBack }) => {
             {/* Noise Type Filter */}
             <div className="filter-group">
               <label className="filter-label">Noise Type</label>
-              <div className="filter-options">
+              <div className="noise-type-buttons">
                 {noiseTypes.map(type => {
                   const IconComponent = type.icon;
                   return (
                     <button
                       key={type.id}
+                      className={`noise-type-button ${filters.noiseType === type.id ? 'active' : ''}`}
                       onClick={() => setFilters(prev => ({ ...prev, noiseType: type.id }))}
-                      className={`filter-option ${filters.noiseType === type.id ? 'active' : ''}`}
                     >
-                      <IconComponent className="filter-option-icon" />
+                      <IconComponent className="type-icon" />
                       {type.label}
                     </button>
                   );
@@ -151,46 +134,32 @@ const NoiseMap = ({ onBack }) => {
               </div>
             </div>
 
-            {/* Time Range Filter */}
-            <div className="filter-group">
-              <label className="filter-label">Time Range</label>
-              <div className="filter-options">
-                {timeRanges.map(range => (
-                  <button
-                    key={range.id}
-                    onClick={() => setFilters(prev => ({ ...prev, timeRange: range.id }))}
-                    className={`filter-option ${filters.timeRange === range.id ? 'active' : ''}`}
-                  >
-                    <Clock className="filter-option-icon" />
-                    {range.label}
-                  </button>
-                ))}
-              </div>
-            </div>
-
             {/* Noise Level Range */}
             <div className="filter-group">
-              <label className="filter-label">Noise Level Range (dB)</label>
-              <div className="range-inputs">
-                <input
-                  type="number"
-                  placeholder="Min"
-                  value={filters.minNoiseLevel}
-                  onChange={(e) => setFilters(prev => ({ ...prev, minNoiseLevel: parseInt(e.target.value) || 0 }))}
-                  className="range-input"
-                  min="0"
-                  max="140"
-                />
-                <span className="range-separator">to</span>
-                <input
-                  type="number"
-                  placeholder="Max"
-                  value={filters.maxNoiseLevel}
-                  onChange={(e) => setFilters(prev => ({ ...prev, maxNoiseLevel: parseInt(e.target.value) || 140 }))}
-                  className="range-input"
-                  min="0"
-                  max="140"
-                />
+              <label className="filter-label">Noise Level Range</label>
+              <div className="range-group">
+                <div className="range-input-group">
+                  <label>Min: {filters.minNoiseLevel} dB</label>
+                  <input
+                    type="range"
+                    value={filters.minNoiseLevel}
+                    onChange={(e) => setFilters(prev => ({ ...prev, minNoiseLevel: parseInt(e.target.value) || 0 }))}
+                    className="range-input"
+                    min="0"
+                    max="140"
+                  />
+                </div>
+                <div className="range-input-group">
+                  <label>Max: {filters.maxNoiseLevel} dB</label>
+                  <input
+                    type="range"
+                    value={filters.maxNoiseLevel}
+                    onChange={(e) => setFilters(prev => ({ ...prev, maxNoiseLevel: parseInt(e.target.value) || 140 }))}
+                    className="range-input"
+                    min="0"
+                    max="140"
+                  />
+                </div>
               </div>
             </div>
           </div>
@@ -200,7 +169,7 @@ const NoiseMap = ({ onBack }) => {
       {/* Map Container */}
       <div className="map-container">
         <MapContainer
-          center={[20, 0]} // Centered to show global coverage
+          center={[20, 0]}
           zoom={2}
           style={{ height: '100%', width: '100%' }}
           zoomControl={true}
@@ -259,8 +228,8 @@ const NoiseMap = ({ onBack }) => {
           })}
         </MapContainer>
 
-        {/* Notification Center */}
-        <NotificationCenter onLocationClick={handleNotificationLocationClick} />
+        {/* Simple Notifications */}
+        <SimpleNotifications />
       </div>
 
       {/* Legend */}
@@ -303,4 +272,4 @@ const NoiseMap = ({ onBack }) => {
   );
 };
 
-export default NoiseMap;
+export default WorkingMap;
